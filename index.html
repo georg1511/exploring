@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1" />
+  <title>Exploring</title>
+  <meta name="description" content="Entdecke jede Stadt – Runden & Wege mit spannenden Orten und Tracker." />
+  <meta name="theme-color" content="#f2f2f7" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <div id="map" aria-label="Karte"></div>
+
+  <!-- Top controls -->
+  <header class="topbar">
+    <button class="level-chip" id="levelBtn" aria-label="Mein Fortschritt"></button>
+    <div class="map-controls">
+      <button id="libraryBtn" aria-label="Meine Wege" title="Meine Wege">
+        <svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
+      </button>
+      <button id="layersBtn" aria-label="Darstellung: Karte und Farbe" title="Karte und Farbe" aria-expanded="false">
+        <svg viewBox="0 0 24 24"><path d="M12 3 2 8l10 5 10-5-10-5Z"/><path d="m2 13 10 5 10-5"/></svg>
+      </button>
+      <button id="locateBtn" aria-label="Auf meinen Standort zentrieren" title="Mein Standort">
+        <svg viewBox="0 0 24 24"><path d="m3 11 18-8-8 18-2-8-8-2Z"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- Look chooser (map style, accent colour) -->
+  <div class="look-panel" id="lookPanel" hidden>
+    <h2 class="label">Karte</h2>
+    <div class="map-styles" id="mapStyles"></div>
+    <h2 class="label">Farbe</h2>
+    <div class="swatches" id="accentSwatches"></div>
+    <label class="switch-row">Meine Wege zeigen<input type="checkbox" class="switch" id="trailsToggle"></label>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <!-- Sheet -->
+  <section class="sheet" id="sheet">
+    <div class="sheet-handle" id="sheetHandle"><span></span></div>
+    <div class="sheet-body" id="sheetBody">
+
+      <!-- PLAN -->
+      <div class="view" id="view-plan">
+        <p class="eyebrow" id="greetingEyebrow">Guten Abend</p>
+        <h1 class="title" id="greetingTitle">Entdecken</h1>
+
+        <div class="segmented" role="tablist" id="routeTypeSeg">
+          <button class="seg active" data-type="loop" role="tab">Runde</button>
+          <button class="seg" data-type="ab" role="tab">Von A nach B</button>
+        </div>
+
+        <div class="group field-group" id="startField">
+          <label class="row field">
+            <span class="field-dot start"></span>
+            <input id="startInput" placeholder="Mein Standort" autocomplete="off" />
+            <button class="mini-btn" id="homeBtn" aria-label="Hotel als Start">
+              <svg viewBox="0 0 24 24"><path d="M3 21V7l9-4 9 4v14M9 21v-6h6v6M8 10h.01M12 10h.01M16 10h.01"/></svg>
+            </button>
+            <button class="mini-btn" id="useMyLocation" title="Mein Standort" aria-label="Mein Standort verwenden">
+              <svg viewBox="0 0 24 24"><path d="m3 11 18-8-8 18-2-8-8-2Z"/></svg>
+            </button>
+          </label>
+          <label class="row field hidden" id="destField">
+            <span class="field-dot dest"></span>
+            <input id="destInput" placeholder="Ziel suchen oder auf Karte tippen" autocomplete="off" />
+            <button class="mini-btn" id="pickOnMap" title="Auf Karte wählen" aria-label="Ziel auf Karte wählen">
+              <svg viewBox="0 0 24 24"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21Z"/><circle cx="12" cy="9.5" r="2.5"/></svg>
+            </button>
+          </label>
+          <ul class="suggestions hidden" id="suggestions"></ul>
+        </div>
+
+        <div class="modes" id="modes">
+          <button class="mode" data-mode="walk">
+            <svg viewBox="0 0 24 24"><circle cx="13" cy="4" r="2"/><path d="m9 21 2.5-7M14.5 21l-2-5.5 1-4.5-4 1.5L8 16"/><path d="m13.5 11 2.5 3 3 .5"/></svg>
+            <span>Gehen</span>
+          </button>
+          <button class="mode active" data-mode="run">
+            <svg viewBox="0 0 24 24"><circle cx="15" cy="4" r="2"/><path d="m4 21 4-4 3 1 2-5"/><path d="m7 9 4-2 4 2 1 4 4 1"/><path d="m13 13 3 4v4"/></svg>
+            <span>Laufen</span>
+          </button>
+          <button class="mode" data-mode="bike">
+            <svg viewBox="0 0 24 24"><circle cx="5.5" cy="17" r="3.5"/><circle cx="18.5" cy="17" r="3.5"/><path d="M5.5 17 9 9h6l3.5 8M9 9l3 8h1.5M14 5h2l-1 4"/></svg>
+            <span>Rad</span>
+          </button>
+          <button class="mode" data-mode="car">
+            <svg viewBox="0 0 24 24"><path d="M5 17H3v-5l2-5h14l2 5v5h-2"/><path d="M3 12h18"/><circle cx="7.5" cy="17" r="2"/><circle cx="16.5" cy="17" r="2"/></svg>
+            <span>Auto</span>
+          </button>
+        </div>
+
+        <div class="group">
+          <div class="row time-head">
+            <span>Dauer</span>
+            <output class="time-value" id="timeValue">30 Min</output>
+          </div>
+          <div class="row col">
+            <input type="range" id="timeRange" min="5" max="180" step="5" value="30" aria-label="Dauer in Minuten" />
+            <div class="time-presets" id="timePresets"></div>
+          </div>
+          <div class="row pace" id="paceRow">
+            <span>Tempo</span>
+            <div class="stepper">
+              <button id="paceMinus" aria-label="Langsamer">−</button>
+              <b id="paceVal">6:00 min/km</b>
+              <button id="pacePlus" aria-label="Schneller">+</button>
+            </div>
+          </div>
+        </div>
+
+        <h2 class="label">Interessen</h2>
+        <div class="chips" id="interests"></div>
+
+        <div class="cta-row sticky">
+          <button class="btn primary big" id="findRouteBtn"><span class="btn-label">Route finden</span></button>
+          <div class="secondary-row">
+            <button class="btn plain" id="surpriseBtn">Überrasch mich</button>
+            <button class="btn plain" id="freeTrackBtn">Frei aufzeichnen</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- RESULT -->
+      <div class="view hidden" id="view-result">
+        <div class="result-head">
+          <button class="back-btn" id="backToPlan" aria-label="Zurück">
+            <svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>
+          </button>
+          <div>
+            <p class="eyebrow" id="resultEyebrow">Deine Runde</p>
+            <h1 class="title small" id="resultTitle">Abendrunde</h1>
+          </div>
+        </div>
+        <div class="stats" id="resultStats"></div>
+        <div class="result-extra" id="resultExtra"></div>
+        <div class="notice hidden" id="resultNotice"></div>
+        <div class="poi-strip" id="poiStrip"></div>
+        <div class="cta-row">
+          <button class="btn primary big" id="startNavBtn"><span class="btn-label">Los geht's</span></button>
+        </div>
+        <div class="secondary-row">
+          <button class="btn tinted" id="rerollBtn">Andere Route</button>
+          <button class="btn tinted" id="saveRouteBtn"><span id="saveRouteLabel">Speichern</span></button>
+          <button class="btn tinted icon-only" id="gpxRouteBtn" title="Als GPX exportieren" aria-label="Als GPX exportieren">
+            <svg viewBox="0 0 24 24"><path d="M12 15V3M8 7l4-4 4 4M5 12v8h14v-8"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- NAV / TRACKING -->
+      <div class="view hidden" id="view-nav">
+        <div class="nav-next" id="navNext">
+          <div class="nav-next-icon" id="navNextIcon"></div>
+          <div class="nav-next-text">
+            <p class="eyebrow" id="navNextDist">Gleich</p>
+            <p class="nav-next-name" id="navNextName">Los geht's!</p>
+          </div>
+        </div>
+        <div class="live-stats">
+          <div><span class="live-val" id="liveTime">0:00</span><span class="live-lbl">Zeit</span></div>
+          <div><span class="live-val" id="liveDist">0,00</span><span class="live-lbl">km</span></div>
+          <div><span class="live-val" id="livePace">–</span><span class="live-lbl">Ø <span class="live-tempo-unit">min/km</span></span></div>
+          <div><span class="live-val sm" id="liveNow">–</span><span class="live-lbl">aktuell</span></div>
+          <div><span class="live-val sm" id="liveKcal">0</span><span class="live-lbl">kcal</span></div>
+          <div><span class="live-val sm" id="liveEle">–</span><span class="live-lbl">Höhenmeter</span></div>
+        </div>
+        <div class="progress" id="navProgressWrap"><div class="progress-bar" id="navProgress"></div></div>
+        <div class="nav-actions">
+          <button class="btn tinted big" id="pauseBtn">Pause</button>
+          <button class="btn danger big" id="stopBtn">Beenden</button>
+        </div>
+      </div>
+
+      <!-- PLACE -->
+      <div class="view hidden" id="view-poi">
+        <div class="poi-hero" id="poiHero"></div>
+        <div class="result-head">
+          <button class="back-btn" id="poiBack" aria-label="Zurück">
+            <svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>
+          </button>
+          <div>
+            <p class="eyebrow" id="poiCat">Kultur</p>
+            <h1 class="title small" id="poiTitle">Ort</h1>
+          </div>
+        </div>
+        <div class="poi-text" id="poiText"></div>
+        <div class="secondary-row" id="poiWish">
+          <button class="btn tinted" id="poiMust">Unbedingt hin</button>
+          <button class="btn tinted" id="poiSkip">Nicht für mich</button>
+        </div>
+        <div class="secondary-row">
+          <a class="btn plain" id="poiLink" target="_blank" rel="noopener">Mehr auf Wikipedia</a>
+        </div>
+      </div>
+
+      <!-- LIBRARY -->
+      <div class="view hidden" id="view-library">
+        <div class="result-head">
+          <button class="back-btn" id="libBack" aria-label="Zurück">
+            <svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>
+          </button>
+          <div>
+            <h1 class="title small">Meine Wege</h1>
+          </div>
+        </div>
+        <div id="explorerStats"></div>
+        <div class="segmented" id="libTabs">
+          <button class="seg active" data-tab="tracks">Aktivitäten</button>
+          <button class="seg" data-tab="routes">Routen</button>
+          <button class="seg" data-tab="stats">Fortschritt</button>
+        </div>
+        <ul class="lib-list group" id="libList"></ul>
+        <div class="hidden" id="libStats"></div>
+      </div>
+
+      <!-- ACTIVITY -->
+      <div class="view hidden" id="view-activity">
+        <div class="result-head">
+          <button class="back-btn" id="actBack" aria-label="Zurück">
+            <svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>
+          </button>
+          <div>
+            <p class="eyebrow" id="actEyebrow">Aktivität</p>
+            <h1 class="title small" id="actTitle">Tour</h1>
+          </div>
+        </div>
+        <div id="actReward"></div>
+        <div class="stats six" id="actStats"></div>
+        <div id="actEle"></div>
+        <div id="actSplits"></div>
+        <div id="actPlaces"></div>
+        <div class="secondary-row" style="margin-top:20px">
+          <button class="btn tinted" id="actAsRoute">Als Route merken</button>
+          <button class="btn tinted icon-only" id="actGpx" title="Als GPX exportieren" aria-label="Als GPX exportieren">
+            <svg viewBox="0 0 24 24"><path d="M12 15V3M8 7l4-4 4 4M5 12v8h14v-8"/></svg>
+          </button>
+          <button class="btn danger icon-only" id="actDelete" title="Löschen" aria-label="Aktivität löschen">
+            <svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- Finish dialog (iOS alert style) -->
+  <dialog id="saveDialog">
+    <form method="dialog" class="dialog-body">
+      <div class="dialog-icon" id="saveDialogEmoji"></div>
+      <h2 id="saveDialogTitle">Stark erkundet!</h2>
+      <p id="saveDialogText"></p>
+      <input id="saveName" placeholder="Name" />
+      <div class="dialog-actions">
+        <button value="discard">Verwerfen</button>
+        <button value="save" class="strong">Speichern</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
